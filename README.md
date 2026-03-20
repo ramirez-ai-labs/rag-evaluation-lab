@@ -6,10 +6,9 @@ This lab helps you understand:
 
 - What RAG is  
 - Why RAG systems need evaluation  
-- The three main types of RAG evaluation  
-- How to compute simple retrieval metrics (Recall@k, Precision@k, MRR)  
-- Optional LLM answer generation  
-- Optional LLM-as-judge scoring  
+- How to compute simple retrieval metrics like Recall@k and Precision@k  
+- How to compare a keyword baseline with TF-IDF retrieval  
+- How to use a simple answer-overlap score as a first check on answer quality  
 
 Everything is built to be **easy**, **hands-on**, and **self-contained**.
 
@@ -51,48 +50,35 @@ That’s what this evaluation lab teaches.
 
 ---
 
-## 📊 The Three Parts of RAG Evaluation
+## 📊 What This Beginner Lab Covers
 
-This project covers the three pillars of RAG evaluation:
+This repo stays intentionally small and focuses on the foundations:
 
 ### **1️⃣ Retrieval Evaluation**  
 “Did we find the correct documents?”
 
-We measure:
+The notebook teaches:
 
-- **Recall@k** — Did any relevant doc appear in the top-k results?  
-- **Precision@k** — Of the retrieved docs, how many were relevant?  
-- **MRR (Mean Reciprocal Rank)** — How high the first relevant doc appears  
+- **Recall@k** — How much of the relevant information appears in the top results  
+- **Precision@k** — How clean or relevant the returned top results are  
+- A comparison between a simple **keyword overlap retriever** and a **TF-IDF + cosine similarity** retriever  
 
-These metrics help choose:
+### **2️⃣ Basic Answer Evaluation**  
+“Did the answer use the important ideas from the reference answer?”
 
-- The best **embedding model**  
-- The best **chunk size**  
-- The optimal **top-k** value  
+The notebook includes:
 
-### **2️⃣ Generation Evaluation** *(optional)*  
-“Did the LLM produce a correct answer?”
+- A small set of **gold answers**  
+- A small set of **model answers**  
+- A **simple overlap score** based on important words after light normalization  
 
-You can evaluate:
+### **3️⃣ Next-Step Ideas**  
+Once the basics make sense, you can extend this notebook with:
 
-- Correctness  
-- Faithfulness (is the answer grounded in retrieved text?)  
-- Whether the answer hallucinates  
-
-This lab includes optional support for:
-
-- LLM-generated answers  
-- LLM-as-judge evaluation  
-
-### **3️⃣ End-to-End Evaluation** *(optional)*  
-“How well does the entire RAG pipeline work?”
-
-Optional evaluations include:
-
-- End-to-end accuracy  
-- Latency  
-- Error patterns  
-- Cost per query  
+- **MRR** or other ranking metrics  
+- Embedding-based retrieval  
+- LLM-as-a-judge scoring  
+- Latency and cost tracking  
 
 ---
 
@@ -101,12 +87,11 @@ Optional evaluations include:
 The lab includes:
 
 - **A small synthetic corpus** of developer-focused documents  
-- **Ground-truth Q&A pairs** mapping questions to relevant documents  
-- **Embeddings + vector search** to simulate retrieval  
-- **Retrieval metrics** (Recall@k, Precision@k, MRR)  
-- Optional components:
-  - **LLM answer generation**
-  - **LLM-as-judge scoring**
+- **Ground-truth relevance labels** for each query  
+- A **keyword-overlap retriever**  
+- A **TF-IDF + cosine similarity retriever**  
+- **Retrieval metrics** (Recall@k and Precision@k)  
+- A **simple answer-overlap metric** for beginner-friendly answer evaluation  
 
 It is intentionally small so you can understand each step clearly.
 
@@ -117,16 +102,8 @@ It is intentionally small so you can understand each step clearly.
 ```bash
 rag-evaluation-lab/
 │
-├── notebooks/
-│   └── rag_evaluation_lab.ipynb  # Main evaluation notebook
-│
-├── data/
-│   ├── documents.json            # Synthetic documents
-│   └── qa_pairs.json             # Ground-truth Q&A
-│
-├── README.md                     # Beginner-friendly guide
-│
-└── utils/                        # Optional helper functions
+├── rag_evaluation_lab.ipynb   # Main beginner notebook
+└── README.md                  # Beginner-friendly guide
 ```
 
 ---
@@ -136,24 +113,24 @@ rag-evaluation-lab/
 1. **Install dependencies**
 
    ```bash
-   pip install sentence-transformers numpy pandas scikit-learn matplotlib
+   pip install numpy pandas scikit-learn matplotlib jupyter
    ```
 
 2. **Launch the notebook**
 
    ```bash
-   jupyter notebook notebooks/rag_evaluation_lab.ipynb
+   jupyter notebook rag_evaluation_lab.ipynb
    ```
 
 3. **Run each cell step-by-step**
 
    You will see:
 
-   - Document embeddings  
+   - A tiny synthetic corpus  
    - Retrieval results  
-   - Retrieval metrics  
-   - Optional generation  
-   - Optional judging  
+   - Recall@k and Precision@k  
+   - A keyword vs TF-IDF comparison  
+   - A simple answer-overlap score  
 
 ---
 
@@ -162,10 +139,9 @@ rag-evaluation-lab/
 By completing this lab, you will understand:
 
 - How RAG systems retrieve documents  
-- How embeddings and vector search work  
+- How a simple keyword baseline differs from TF-IDF retrieval  
 - How to measure retrieval accuracy  
-- How to think about generation correctness  
-- How LLMs can be used as evaluation judges  
+- How to think about answer quality with lightweight metrics  
 
 This gives you a strong foundation for evaluating larger or production RAG pipelines.
 
@@ -175,6 +151,7 @@ This gives you a strong foundation for evaluating larger or production RAG pipel
 
 Here are ways to extend the lab:
 
+- Add **MRR** and compare rank-sensitive retrieval quality  
 - Compare multiple embedding models  
 - Experiment with different chunk sizes  
 - Plot retrieval metrics as charts  
