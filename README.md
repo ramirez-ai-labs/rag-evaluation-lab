@@ -102,8 +102,9 @@ It is intentionally small so you can understand each step clearly.
 ```bash
 rag-evaluation-lab/
 │
-├── rag_evaluation_lab.ipynb   # Main beginner notebook
-└── README.md                  # Beginner-friendly guide
+├── rag_evaluation_lab.ipynb      # Part 1 — beginner notebook (keyword vs TF-IDF)
+├── rag_evaluation_vertex.ipynb   # Part 2 — Vertex AI Embeddings benchmark
+└── README.md                     # This guide
 ```
 
 ---
@@ -151,12 +152,52 @@ This gives you a strong foundation for evaluating larger or production RAG pipel
 
 Here are ways to extend the lab:
 
-- Add **MRR** and compare rank-sensitive retrieval quality  
-- Compare multiple embedding models  
 - Experiment with different chunk sizes  
-- Plot retrieval metrics as charts  
 - Add latency measurement  
 - Add more complex question types  
 - Use real documentation instead of synthetic text  
+
+For MRR and embedding-based retrieval, see **Part 2** below.
+
+---
+
+## 🚀 Part 2 — Vertex AI Embeddings Benchmark
+
+`rag_evaluation_vertex.ipynb` extends the lab with Google's `text-embedding-004` model via
+Vertex AI, benchmarking embedding-based retrieval against the keyword and TF-IDF baselines
+from Part 1 across **Recall@k**, **Precision@k**, and **MRR** (Mean Reciprocal Rank).
+
+It reuses the exact same synthetic corpus, ground-truth labels, and metric functions as
+Part 1 — only the retriever changes — so the comparison is apples-to-apples. Part 1 stays
+untouched as the standalone beginner baseline.
+
+### GCP Setup
+
+You need a Google account and a GCP project with billing enabled (a card on file is
+required even for free-tier usage — you won't be charged for this lab; embedding calls on
+this tiny corpus cost effectively $0, and new accounts get $300 in free credits).
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project (e.g. `ramirez-rag-lab`)
+2. Enable billing on that project
+3. Enable the Vertex AI API:
+
+   ```bash
+   gcloud services enable aiplatform.googleapis.com
+   ```
+
+4. Authenticate locally:
+
+   ```bash
+   gcloud auth application-default login
+   ```
+
+5. Install the extra dependency and run the notebook:
+
+   ```bash
+   pip install google-cloud-aiplatform
+   jupyter notebook rag_evaluation_vertex.ipynb
+   ```
+
+6. Set `GCP_PROJECT_ID` in the notebook's config cell to your project ID.
 
 Happy building!
