@@ -161,15 +161,30 @@ For MRR and embedding-based retrieval, see **Part 2** below.
 
 ---
 
-## 🚀 Part 2 — Vertex AI Embeddings Benchmark
+## 🚀 Part 2 — Vertex AI Embeddings Benchmark (Production-Ready)
 
 `rag_evaluation_vertex.ipynb` extends the lab with Google's `text-embedding-004` model via
 Vertex AI, benchmarking embedding-based retrieval against the keyword and TF-IDF baselines
-from Part 1 across **Recall@k**, **Precision@k**, and **MRR** (Mean Reciprocal Rank).
+from Part 1 across **Recall@k**, **Precision@k**, **MRR**, **latency**, and **cost**.
 
 It reuses the exact same synthetic corpus, ground-truth labels, and metric functions as
 Part 1 — only the retriever changes — so the comparison is apples-to-apples. Part 1 stays
 untouched as the standalone beginner baseline.
+
+### What You'll Learn in Part 2
+
+Beyond retrieval quality metrics, Part 2 adds **production considerations**:
+
+- **Latency** – How fast does each retriever respond? (Keyword/TF-IDF: 1–5ms, Vertex AI embeddings: 50–200ms)
+- **Cost** – What's the per-query cost at scale? (Keyword/TF-IDF: ~$0, Vertex AI: $20–100 per 1M queries)
+- **Trade-off Framework** – When would you recommend embeddings over TF-IDF to a customer? (Quality vs. cost vs. speed)
+
+This is exactly how a production RAG consultant (Forward Deployed Engineer) thinks: **"Embeddings improve recall by 15%, but cost $500/month. Is that worth it for your use case?"**
+
+The notebook includes a decision tree for common scenarios:
+- Need results in 2 weeks? → Keyword or TF-IDF (no setup)
+- Have a GCP project and can wait? → Embeddings (best quality)
+- 10M+ documents? → Consider Vertex AI Search (managed service)
 
 ### GCP Setup
 
