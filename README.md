@@ -237,6 +237,66 @@ Full step-by-step setup commands (including the BigQuery piece landing next) are
 
 ---
 
+## 🏗️ How the GCP Components Fit Together
+
+When you run `rag_evaluation_vertex.ipynb`, here's the flow:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Part 2: Benchmark Execution (Vertex AI + Cloud Storage Cache)   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Load Corpus                                                 │
+│     ├─→ Check GCS: gs://rag-eval-lab-*/corpus/documents.json   │
+│     └─→ If missing: Upload from notebook (lib/gcs_utils.py)    │
+│                                                                 │
+│  2. Compute/Cache Embeddings (lib/gcs_utils.py)                │
+│     ├─→ Check GCS: .../embeddings/vertex/.../corpus_*.npy      │
+│     ├─→ If missing: Call Vertex AI (paid API) → cache result   │
+│     └─→ If cached: Load and skip the API call (saves money!)   │
+│                                                                 │
+│  3. Run Benchmarks                                              │
+│     ├─→ Keyword retriever (local, free)                        │
+│     ├─→ TF-IDF retriever (local, free)                         │
+│     └─→ Vertex AI embeddings retriever (cloud, paid per query) │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Part 3: Persistence Layer (BigQuery)                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Write Results → BigQuery                                       │
+│  ├─→ Table: rag_eval_lab.benchmark_runs                        │
+│  ├─→ Columns: run_id, retriever_type, recall_at_k, mrr, ...    │
+│  └─→ One row per retriever per run                              │
+│                                                                 │
+│  Query Results (no re-running!)                                 │
+│  ├─→ "What was my best MRR last week?"                         │
+│  ├─→ "How much did embeddings improve precision?"              │
+│  └─→ "What's my cost trend over time?"                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why Each Component?
+
+| Service | Why | When You Use It |
+|---------|-----|-----------------|
+| **Vertex AI** | Compute embeddings with semantic understanding | Part 2: retrieve queries |
+| **Cloud Storage** | Cache corpus + embeddings to avoid re-computation | Every run: skip paid API calls if unchanged |
+| **BigQuery** | Query benchmark history without re-running notebook | After every run: compare metrics across time |
+
+### The FDE Value Prop
+
+You can now answer customer questions with **data, not guesses**:
+
+- "Should we use embeddings?" → Show the recall/precision trade-off from past runs
+- "How much will it cost?" → Query BigQuery to show per-query and per-month costs
+- "Will this work for our corpus size?" → Run with 100K docs, persist results, compare latency trends
+
+---
+
 ## 🗄️ Part 3 — Cloud Persistence Layer (BigQuery + Cloud Storage)
 
 Parts 1 and 2 run entirely in notebook memory — the benchmark results exist only until you
