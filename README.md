@@ -241,42 +241,46 @@ Full step-by-step setup commands (including the BigQuery piece landing next) are
 
 When you run `rag_evaluation_vertex.ipynb`, here's the flow:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Part 2: Benchmark Execution (Vertex AI + Cloud Storage Cache)   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Load Corpus                                                 │
-│     ├─→ Check GCS: gs://rag-eval-lab-*/corpus/documents.json   │
-│     └─→ If missing: Upload from notebook (lib/gcs_utils.py)    │
-│                                                                 │
-│  2. Compute/Cache Embeddings (lib/gcs_utils.py)                │
-│     ├─→ Check GCS: .../embeddings/vertex/.../corpus_*.npy      │
-│     ├─→ If missing: Call Vertex AI (paid API) → cache result   │
-│     └─→ If cached: Load and skip the API call (saves money!)   │
-│                                                                 │
-│  3. Run Benchmarks                                              │
-│     ├─→ Keyword retriever (local, free)                        │
-│     ├─→ TF-IDF retriever (local, free)                         │
-│     └─→ Vertex AI embeddings retriever (cloud, paid per query) │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Part 3: Persistence Layer (BigQuery)                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Write Results → BigQuery                                       │
-│  ├─→ Table: rag_eval_lab.benchmark_runs                        │
-│  ├─→ Columns: run_id, retriever_type, recall_at_k, mrr, ...    │
-│  └─→ One row per retriever per run                              │
-│                                                                 │
-│  Query Results (no re-running!)                                 │
-│  ├─→ "What was my best MRR last week?"                         │
-│  ├─→ "How much did embeddings improve precision?"              │
-│  └─→ "What's my cost trend over time?"                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A["Part 2: Benchmark Execution"] --> B["1. Load Corpus"]
+    B --> C{Corpus in<br/>Cloud Storage?}
+    C -->|Yes| D["Load from GCS<br/>(fast, free)"]
+    C -->|No| E["Upload to GCS<br/>(lib/gcs_utils.py)"]
+    D --> F["2. Compute/Cache Embeddings"]
+    E --> F
+    F --> G{Embeddings<br/>cached in GCS?}
+    G -->|Yes| H["Load from GCS<br/>(saves API cost)"]
+    G -->|No| I["Call Vertex AI API<br/>(paid, then cache)"]
+    H --> J["3. Run Benchmarks"]
+    I --> J
+    J --> K["Keyword Retriever<br/>(local, free)"]
+    J --> L["TF-IDF Retriever<br/>(local, free)"]
+    J --> M["Vertex AI Retriever<br/>(cloud, paid per query)"]
+    K --> N["Part 3: Persistence Layer"]
+    L --> N
+    M --> N
+    N --> O["Write Results<br/>→ BigQuery"]
+    O --> P["Table: rag_eval_lab.benchmark_runs<br/>Columns: run_id, retriever_type,<br/>recall_at_k, mrr, latency, cost"]
+    P --> Q["Query Results<br/>no re-running!"]
+    Q --> R["What was my best MRR?<br/>How much did embeddings improve?<br/>What's my cost trend?"]
+    
+    style A fill:#fff3e0
+    style B fill:#fff3e0
+    style D fill:#fff3e0
+    style E fill:#fff3e0
+    style F fill:#fff3e0
+    style H fill:#fff3e0
+    style I fill:#fce4ec
+    style J fill:#f3e5f5
+    style K fill:#f3e5f5
+    style L fill:#f3e5f5
+    style M fill:#fce4ec
+    style N fill:#e8f5e9
+    style O fill:#e8f5e9
+    style P fill:#e8f5e9
+    style Q fill:#e8f5e9
+    style R fill:#e8f5e9
 ```
 
 ### Why Each Component?
