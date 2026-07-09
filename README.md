@@ -103,13 +103,13 @@ It is intentionally small so you can understand each step clearly.
 rag-evaluation-lab/
 │
 ├── rag_evaluation_lab.ipynb      # Part 1 — beginner notebook (keyword vs TF-IDF)
-├── rag_evaluation_vertex.ipynb   # Part 2 — Vertex AI Embeddings benchmark
+├── rag_evaluation_vertex.ipynb   # Part 2 — Vertex AI Embeddings benchmark; Part 3 adds BigQuery
 ├── lib/
-│   └── gcs_utils.py              # Cloud Storage helpers: corpus upload + embedding cache
+│   ├── gcs_utils.py              # Cloud Storage: corpus upload + embedding cache (Phase 1)
+│   └── bq_writer.py              # BigQuery: persist benchmark results for querying (Phase 3)
 ├── tests/
 │   └── test_gcs_utils.py         # Mocked unit tests for lib/gcs_utils.py (no GCP calls)
-├── requirements.txt              # Pinned dependencies for both notebooks + lib/
-├── plan.md / plan.html           # BigQuery + Cloud Storage integration plan and progress
+├── requirements.txt              # Pinned dependencies (Vertex AI, Cloud Storage, BigQuery)
 ├── retrieval_benchmark_vertex.png
 └── README.md                     # This guide
 ```
@@ -235,10 +235,56 @@ this tiny corpus cost effectively $0, and new accounts get $300 in free credits)
 Full step-by-step setup commands (including the BigQuery piece landing next) are tracked in
 [`plan.md`](./plan.md).
 
-### Running the tests
+---
 
-`lib/gcs_utils.py` has a small mocked unit test suite — no GCP credentials or network calls,
-free to run any time you touch the caching logic:
+## 🗄️ Part 3 — Cloud Persistence Layer (BigQuery + Cloud Storage)
+
+Parts 1 and 2 run entirely in notebook memory — the benchmark results exist only until you
+close the kernel. Part 3 adds **production-grade persistence** so you can:
+
+- **Query benchmark history** across runs without re-running notebooks
+- **Compare retrievers** over time (e.g., "Did embeddings improve after retraining?")
+- **Track cost vs. quality trade-offs** with queryable metrics
+
+### What Part 3 Adds
+
+Two Google Cloud services, both under their always-free tiers:
+
+**Cloud Storage (Phase 1 — already live)**
+- **Why**: Cache the corpus and computed embeddings so re-running the notebook doesn't re-call the paid Vertex AI API
+- **How**: `lib/gcs_utils.py` checks GCS before recomputing; writes go to `gs://rag-eval-lab-YOUR_PROJECT_ID/corpus/` and `/embeddings/vertex/`
+- **Cost**: <1 MB per run, well under the 5 GB always-free tier → **$0 expected**
+
+**BigQuery (Phase 3 — new)**
+- **Why**: Store benchmark results (Recall@k, Precision@k, MRR, latency, cost) as queryable rows
+- **How**: After each run, `lib/bq_writer.py` writes results to `rag_eval_lab.benchmark_runs` table
+- **Query example**: `SELECT retriever_type, AVG(recall_at_k), AVG(latency_ms) FROM benchmark_runs GROUP BY retriever_type` — no re-running needed
+- **Cost**: <1 MB processed per run, well under the 1 TB/month always-free tier → **$0 expected**
+
+### Production Pattern: Cache + Query
+
+This mirrors how real RAG teams operate:
+
+1. **Run notebook** → Compute embeddings, store in GCS, benchmark retrievers
+2. **Write results** → BigQuery row per run
+3. **Query history** → Compare performance across corpus sizes, models, or time
+4. **Decide**: "Embeddings improved recall 15%, but now cost $500/month. Worth it?"
+
+The notebook includes a sample SQL query showing aggregated metrics across all past runs.
+
+### No Code Changes Needed
+
+If you have Part 2 running, Part 3 is automatic:
+
+- The notebook cells handle data prep and BigQuery writes
+- Results persist after each run
+- The sample query is pre-built and executed
+
+---
+
+### Running the Tests
+
+`lib/gcs_utils.py` has a mocked unit test suite — no GCP credentials or network calls:
 
 ```bash
 python -m unittest tests.test_gcs_utils -v
