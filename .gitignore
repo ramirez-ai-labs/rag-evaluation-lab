@@ -216,3 +216,7 @@ __marimo__/
 *service-account*.json
 *credentials*.json
 gcp-key*.json
+
+# Project planning documents (local working notes, not part of the portfolio)
+plan.md
+plan.html
