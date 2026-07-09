@@ -104,6 +104,13 @@ rag-evaluation-lab/
 │
 ├── rag_evaluation_lab.ipynb      # Part 1 — beginner notebook (keyword vs TF-IDF)
 ├── rag_evaluation_vertex.ipynb   # Part 2 — Vertex AI Embeddings benchmark
+├── lib/
+│   └── gcs_utils.py              # Cloud Storage helpers: corpus upload + embedding cache
+├── tests/
+│   └── test_gcs_utils.py         # Mocked unit tests for lib/gcs_utils.py (no GCP calls)
+├── requirements.txt              # Pinned dependencies for both notebooks + lib/
+├── plan.md / plan.html           # BigQuery + Cloud Storage integration plan and progress
+├── retrieval_benchmark_vertex.png
 └── README.md                     # This guide
 ```
 
@@ -193,26 +200,48 @@ required even for free-tier usage — you won't be charged for this lab; embeddi
 this tiny corpus cost effectively $0, and new accounts get $300 in free credits).
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project (e.g. `ramirez-rag-lab`)
-2. Enable billing on that project
-3. Enable the Vertex AI API:
+2. Enable billing on that project, and set a budget alert ($1–5) as a tripwire
+3. Enable the Vertex AI, BigQuery, and Cloud Storage APIs:
 
    ```bash
-   gcloud services enable aiplatform.googleapis.com
+   gcloud services enable aiplatform.googleapis.com bigquery.googleapis.com storage.googleapis.com
    ```
 
 4. Authenticate locally:
 
    ```bash
    gcloud auth application-default login
+   gcloud auth application-default set-quota-project YOUR_PROJECT_ID
    ```
 
-5. Install the extra dependency and run the notebook:
+5. Create the Cloud Storage bucket used to cache the corpus and embeddings (Part 2 writes
+   here so re-running the notebook doesn't re-call the paid embeddings API for an unchanged
+   corpus — see `lib/gcs_utils.py`):
 
    ```bash
-   pip install google-cloud-aiplatform
+   gcloud storage buckets create gs://rag-eval-lab-YOUR_PROJECT_ID \
+     --project=YOUR_PROJECT_ID --location=us-central1 --uniform-bucket-level-access
+   ```
+
+6. Install dependencies and run the notebook:
+
+   ```bash
+   pip install -r requirements.txt
    jupyter notebook rag_evaluation_vertex.ipynb
    ```
 
-6. Set `GCP_PROJECT_ID` in the notebook's config cell to your project ID.
+7. Set `GCP_PROJECT_ID` and `GCS_BUCKET_NAME` in the notebook's config cell to match your project and bucket.
+
+Full step-by-step setup commands (including the BigQuery piece landing next) are tracked in
+[`plan.md`](./plan.md).
+
+### Running the tests
+
+`lib/gcs_utils.py` has a small mocked unit test suite — no GCP credentials or network calls,
+free to run any time you touch the caching logic:
+
+```bash
+python -m unittest tests.test_gcs_utils -v
+```
 
 Happy building!
