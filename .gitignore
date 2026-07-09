@@ -16,6 +16,11 @@ eggs/
 .eggs/
 lib/
 lib64/
+# The generic "lib/" rule above targets setuptools build artifacts
+# (e.g. build/lib/), but this repo also has a real source package at
+# lib/ (gcs_utils.py, bq_writer.py) — un-ignore our own module files.
+!lib/
+!lib/*.py
 parts/
 sdist/
 var/
@@ -205,3 +210,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# GCP credentials (ADC lives outside the repo; this is a backstop
+# in case a service-account key ever gets downloaded into the project)
+*service-account*.json
+*credentials*.json
+gcp-key*.json

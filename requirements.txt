@@ -1,0 +1,11 @@
+# Core notebook dependencies (Part 1 + Part 2)
+numpy
+pandas
+scikit-learn
+matplotlib
+
+# Vertex AI (Part 2) -- also pulls in google-cloud-storage as a transitive dep
+google-cloud-aiplatform
+
+# Cloud Storage (Phase 1) -- pinned explicitly since lib/gcs_utils.py imports it directly
+google-cloud-storage

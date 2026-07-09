@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: BigQuery + Cloud Storage Integration</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #5a5a5a;
+    --border: #e2e2e2;
+    --code-bg: #f5f5f5;
+    --accent: #1a56db;
+    --table-header: #f0f2f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --fg: #e6e6e6;
+      --muted: #9a9a9a;
+      --border: #2c2f36;
+      --code-bg: #1e2127;
+      --accent: #7aa2f7;
+      --table-header: #1e2127;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto;
+    max-width: 880px;
+    padding: 2.5rem 1.5rem 4rem;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  h1 {
+    font-size: 1.75rem;
+    margin-bottom: 0.4rem;
+  }
+  h2 {
+    font-size: 1.25rem;
+    margin-top: 2.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+  }
+  ul.tasks {
+    list-style: none;
+    padding-left: 0;
+    margin: 0.75rem 0;
+  }
+  ul.tasks li {
+    position: relative;
+    padding-left: 1.75rem;
+    margin: 0.5rem 0;
+  }
+  ul.tasks li::before {
+    content: "☐";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 1.05em;
+  }
+  ul.tasks li ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin: 0.35rem 0;
+  }
+  ul.tasks li ul li::before { content: ""; }
+  ul.tasks li ul li { padding-left: 0; }
+  code {
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+  pre code {
+    background: none;
+    padding: 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--table-header);
+  }
+  .status-closed { color: #1a7f37; font-weight: 600; }
+  .status-open { color: #b42318; font-weight: 600; }
+  .note {
+    font-style: italic;
+    color: var(--muted);
+  }
+  a { color: var(--accent); }
+  .phase-done {
+    color: #1a7f37;
+    font-weight: 600;
+  }
+  ul.tasks li.done::before {
+    content: "☑";
+  }
+  ul.tasks li.done {
+    color: var(--muted);
+  }
+  ul.tasks li.skipped::before {
+    content: "☑";
+  }
+  ul.tasks li.skipped {
+    color: var(--muted);
+  }
+  ul.tasks li.skipped s {
+    color: var(--muted);
+  }
+  .infra-note {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    margin-top: 1rem;
+    font-size: 0.92rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Plan: BigQuery + Cloud Storage Integration for <code>rag-evaluation-lab</code></h1>
+<p class="subtitle">Extends Part 2 (<code>rag_evaluation_vertex.ipynb</code>) by persisting benchmark results to BigQuery and moving the corpus/embeddings to Cloud Storage. Goal: demonstrate working, cost-aware integrations with Vertex AI, BigQuery, and Cloud Storage in one artifact. Estimated effort: half a day, split across independently shippable phases.</p>
+
+<h2>Phase 0 — GCP setup (~15 min, one-time) — <span class="phase-done">✅ DONE</span></h2>
+<ul class="tasks">
+  <li class="done">Attach a billing account to the existing Vertex AI project (card on file, $0 expected spend).</li>
+  <li class="done">Set a budget alert ($1–5) on the billing account as a tripwire against runaway/looped API calls.</li>
+  <li class="done">Enable APIs: <code>bigquery.googleapis.com</code>, <code>storage.googleapis.com</code>.</li>
+  <li class="done">Create one GCS bucket in <code>us-central1</code> (required region for Always Free tier): <code>gs://rag-eval-lab-ramirez-rag-lab/</code>.</li>
+  <li class="done">Create one BigQuery dataset: <code>rag_eval_lab</code> (location <code>US</code>, matches on-demand free tier) — project <code>ramirez-rag-lab</code>.</li>
+  <li class="skipped"><s>Scope IAM narrowly</s> — skipped: sole identity is the project owner's own user ADC, not a separate service account, so per-role scoping doesn't apply here.</li>
+  <li class="done">Confirm auth path is Application Default Credentials (<code>gcloud auth application-default login</code> + <code>set-quota-project ramirez-rag-lab</code>), consistent with the existing Vertex AI setup in Part 2. No service-account JSON keys committed to the repo.</li>
+  <li class="done">Add a <code>.gitignore</code> rule for any credential/key file as a backstop (<code>*service-account*.json</code>, <code>*credentials*.json</code>, <code>gcp-key*.json</code>).</li>
+</ul>
+<div class="infra-note">
+  Infrastructure is live: project <code>ramirez-rag-lab</code>, bucket <code>gs://rag-eval-lab-ramirez-rag-lab</code>, dataset <code>ramirez-rag-lab:rag_eval_lab</code>. Phase 1/2 can start.
+</div>
+
+<h2>Phase 1 — Cloud Storage: corpus + embeddings persistence (~1.5 hrs) — <span class="phase-done">✅ DONE (pending your local run)</span></h2>
+<p>Goal: move the synthetic corpus and computed embeddings from local/in-notebook state to GCS, demonstrating a real storage-tier decision.</p>
+<ul class="tasks">
+  <li class="done">Bucket structure: <code>gs://rag-eval-lab-ramirez-rag-lab/corpus/</code> (raw docs), <code>gs://rag-eval-lab-ramirez-rag-lab/embeddings/vertex/text-embedding-004/</code> (serialized <code>text-embedding-004</code> vectors as <code>.npy</code>).</li>
+  <li class="done">New module <code>lib/gcs_utils.py</code>:
+    <ul>
+      <li><code>upload_corpus(docs, bucket)</code></li>
+      <li><code>load_or_compute_embeddings(bucket, path, compute_fn)</code> — checks GCS before re-calling the Vertex AI embeddings API, avoiding redundant paid calls.</li>
+    </ul>
+  </li>
+  <li class="done">Updated <code>rag_evaluation_vertex.ipynb</code>: corpus upload + GCS-backed embedding cache wired into Section 3.5, replacing the direct <code>get_embeddings()</code> call for <code>doc_embeddings</code>. Part 1/Part 2 retrieval logic untouched — only the storage layer changed. Query-time embeddings stay uncached (correctly — only the corpus is stable/cacheable).</li>
+  <li>Verify cost: <code>gcloud storage du -s gs://rag-eval-lab-ramirez-rag-lab/</code> after a run, confirm well under 5 GB. <strong>Not yet run</strong> — this machine has no <code>jupyter</code>/GCP credentials configured (the notebook was previously run from a different machine per its output logs); run the notebook top-to-bottom on your usual machine to confirm end-to-end and check this box.</li>
+</ul>
+
+<h2>Phase 2 — BigQuery: benchmark results as a queryable table (~2 hrs)</h2>
+<p>Goal: every benchmark run (Recall@k, Precision@k, MRR, latency, cost, per retriever type) lands as rows in BigQuery instead of a DataFrame that dies with the kernel.</p>
+<ul class="tasks">
+  <li>Schema for <code>rag_eval_lab.benchmark_runs</code>: <code>run_id, timestamp, retriever_type (keyword/tfidf/vertex_embeddings), recall_at_k, precision_at_k, mrr, latency_ms, estimated_cost_usd, corpus_size, k_value</code>.</li>
+  <li>New module <code>bq_writer.py</code>: <code>write_benchmark_results(df, table_id)</code> using <code>google-cloud-bigquery</code>'s <code>load_table_from_dataframe</code> (or <code>pandas-gbq</code>). Sink only, no pipeline logic.</li>
+  <li>Notebook change: final cell of Part 2 (or new Part 3 cell) calls <code>write_benchmark_results()</code> after computing metrics. Keep existing local CSV/plot output — BigQuery is additive.</li>
+  <li>Add one real query cell, executed against actual rows, output kept in the committed notebook (not left to run on demand):
+    <pre><code>SELECT retriever_type, AVG(recall_at_k), AVG(latency_ms)
+FROM rag_eval_lab.benchmark_runs
+GROUP BY retriever_type</code></pre>
+  </li>
+  <li>Verify cost: dry-run the query (<code>dry_run=True</code>) to confirm bytes processed is near-zero.</li>
+</ul>
+
+<h2>Phase 3 — Documentation (~30 min)</h2>
+<ul class="tasks">
+  <li>Add a "Part 3: Cloud Persistence Layer" section to the README, matching the existing Part 2 voice:
+    <ul>
+      <li>Why BigQuery for results (queryable history across runs, no re-running notebooks to compare) vs. why GCS for embeddings (avoid recomputation cost/latency on Vertex AI calls).</li>
+      <li>Extend the existing decision-tree framing: <em>"Need to compare past benchmark runs? → BigQuery. Need to avoid re-embedding the same corpus? → GCS cache."</em></li>
+      <li>Explicit cost line: "BigQuery: &lt;1 MB processed per run, well under the 1 TB/month always-free tier. Cloud Storage: &lt;1 MB stored, well under the 5 GB always-free tier. Billing account required; $0 expected spend, budget alert configured."</li>
+    </ul>
+  </li>
+  <li>Update the top-of-README summary line to mention BigQuery + Cloud Storage alongside Vertex AI Embeddings.</li>
+</ul>
+
+<h2>Sequencing</h2>
+<p>BigQuery (Phase 2) before Cloud Storage (Phase 1) if shipping incrementally — it's the more directly named qualification and the query-example cell is the highest-signal single addition. Both phases are independent of each other and only depend on Phase 0.</p>
+
+<h2>Gap closure</h2>
+<table>
+  <thead>
+    <tr><th>Preferred qualification item</th><th>Before</th><th>After</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Vertex AI</td><td class="status-closed">closed</td><td class="status-closed">closed</td></tr>
+    <tr><td>BigQuery</td><td class="status-open">open</td><td class="status-closed">closed</td></tr>
+    <tr><td>Cloud Storage</td><td class="status-open">open</td><td class="status-closed">closed</td></tr>
+    <tr><td>Dialogflow</td><td class="status-open">open</td><td class="status-open">open (separate decision, out of scope for this plan)</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>
