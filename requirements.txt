@@ -9,3 +9,6 @@ google-cloud-aiplatform
 
 # Cloud Storage (Phase 1) -- pinned explicitly since lib/gcs_utils.py imports it directly
 google-cloud-storage
+
+# BigQuery (Phase 2) -- for writing benchmark results as queryable rows
+google-cloud-bigquery
