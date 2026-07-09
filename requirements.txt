@@ -12,3 +12,4 @@ google-cloud-storage
 
 # BigQuery (Phase 2) -- for writing benchmark results as queryable rows
 google-cloud-bigquery
+db-dtypes  # Required for BigQuery to_dataframe() pandas integration
