@@ -283,6 +283,12 @@ graph TD
     style R fill:#e8f5e9
 ```
 
+**Color Legend:**
+- 🟧 **Orange** — Cloud Storage (GCS): corpus & embedding cache
+- 🩷 **Pink** — Vertex AI: embedding computation API
+- 🟣 **Purple** — Local compute: benchmarking & metrics
+- 🟩 **Green** — BigQuery: results persistence & queries
+
 ### Why Each Component?
 
 | Service | Why | When You Use It |
