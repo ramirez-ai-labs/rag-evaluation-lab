@@ -102,16 +102,17 @@ It is intentionally small so you can understand each step clearly.
 ```bash
 rag-evaluation-lab/
 │
-├── rag_evaluation_lab.ipynb      # Part 1 — beginner notebook (keyword vs TF-IDF)
-├── rag_evaluation_vertex.ipynb   # Part 2 — Vertex AI Embeddings benchmark; Part 3 adds BigQuery
+├── rag_evaluation_lab.ipynb          # Part 1 — beginner notebook (keyword vs TF-IDF)
+├── rag_evaluation_vertex.ipynb       # Part 2 — Vertex AI Embeddings benchmark + BigQuery
+├── rag_evaluation_multimodal.ipynb   # Part 3 — Multimodal extraction (Gemini vision) + eval
 ├── lib/
-│   ├── gcs_utils.py              # Cloud Storage: corpus upload + embedding cache (Phase 1)
-│   └── bq_writer.py              # BigQuery: persist benchmark results for querying (Phase 3)
+│   ├── gcs_utils.py                  # Cloud Storage: corpus upload + embedding cache
+│   └── bq_writer.py                  # BigQuery: persist benchmark results for querying
 ├── tests/
-│   └── test_gcs_utils.py         # Mocked unit tests for lib/gcs_utils.py (no GCP calls)
-├── requirements.txt              # Pinned dependencies (Vertex AI, Cloud Storage, BigQuery)
+│   └── test_gcs_utils.py             # Mocked unit tests for lib/gcs_utils.py (no GCP calls)
+├── requirements.txt                  # Pinned dependencies (Vertex AI, Storage, BigQuery)
 ├── retrieval_benchmark_vertex.png
-└── README.md                     # This guide
+└── README.md                         # This guide
 ```
 
 ---
@@ -241,43 +242,53 @@ Full step-by-step setup commands (including the BigQuery piece landing next) are
 
 When you run `rag_evaluation_vertex.ipynb`, here's the flow:
 
+```mermaid
+graph TD
+    A["Part 2: Benchmark Execution"] --> B["1. Load Corpus"]
+    B --> C{Corpus in<br/>Cloud Storage?}
+    C -->|Yes| D["Load from GCS<br/>(fast, free)"]
+    C -->|No| E["Upload to GCS<br/>(lib/gcs_utils.py)"]
+    D --> F["2. Compute/Cache Embeddings"]
+    E --> F
+    F --> G{Embeddings<br/>cached in GCS?}
+    G -->|Yes| H["Load from GCS<br/>(saves API cost)"]
+    G -->|No| I["Call Vertex AI API<br/>(paid, then cache)"]
+    H --> J["3. Run Benchmarks"]
+    I --> J
+    J --> K["Keyword Retriever<br/>(local, free)"]
+    J --> L["TF-IDF Retriever<br/>(local, free)"]
+    J --> M["Vertex AI Retriever<br/>(cloud, paid per query)"]
+    K --> N["Part 3: Persistence Layer"]
+    L --> N
+    M --> N
+    N --> O["Write Results<br/>→ BigQuery"]
+    O --> P["Table: rag_eval_lab.benchmark_runs<br/>Columns: run_id, retriever_type,<br/>recall_at_k, mrr, latency, cost"]
+    P --> Q["Query Results<br/>no re-running!"]
+    Q --> R["What was my best MRR?<br/>How much did embeddings improve?<br/>What's my cost trend?"]
+    
+    style A fill:#fff3e0
+    style B fill:#fff3e0
+    style D fill:#fff3e0
+    style E fill:#fff3e0
+    style F fill:#fff3e0
+    style H fill:#fff3e0
+    style I fill:#fce4ec
+    style J fill:#f3e5f5
+    style K fill:#f3e5f5
+    style L fill:#f3e5f5
+    style M fill:#fce4ec
+    style N fill:#e8f5e9
+    style O fill:#e8f5e9
+    style P fill:#e8f5e9
+    style Q fill:#e8f5e9
+    style R fill:#e8f5e9
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Part 2: Benchmark Execution (Vertex AI + Cloud Storage Cache)   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Load Corpus                                                 │
-│     ├─→ Check GCS: gs://rag-eval-lab-*/corpus/documents.json   │
-│     └─→ If missing: Upload from notebook (lib/gcs_utils.py)    │
-│                                                                 │
-│  2. Compute/Cache Embeddings (lib/gcs_utils.py)                │
-│     ├─→ Check GCS: .../embeddings/vertex/.../corpus_*.npy      │
-│     ├─→ If missing: Call Vertex AI (paid API) → cache result   │
-│     └─→ If cached: Load and skip the API call (saves money!)   │
-│                                                                 │
-│  3. Run Benchmarks                                              │
-│     ├─→ Keyword retriever (local, free)                        │
-│     ├─→ TF-IDF retriever (local, free)                         │
-│     └─→ Vertex AI embeddings retriever (cloud, paid per query) │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ Part 3: Persistence Layer (BigQuery)                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Write Results → BigQuery                                       │
-│  ├─→ Table: rag_eval_lab.benchmark_runs                        │
-│  ├─→ Columns: run_id, retriever_type, recall_at_k, mrr, ...    │
-│  └─→ One row per retriever per run                              │
-│                                                                 │
-│  Query Results (no re-running!)                                 │
-│  ├─→ "What was my best MRR last week?"                         │
-│  ├─→ "How much did embeddings improve precision?"              │
-│  └─→ "What's my cost trend over time?"                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+**Color Legend:**
+- 🟧 **Orange** — Cloud Storage (GCS): corpus & embedding cache
+- 🩷 **Pink** — Vertex AI: embedding computation API
+- 🟣 **Purple** — Local compute: benchmarking & metrics
+- 🟩 **Green** — BigQuery: results persistence & queries
 
 ### Why Each Component?
 
@@ -349,5 +360,76 @@ If you have Part 2 running, Part 3 is automatic:
 ```bash
 python -m unittest tests.test_gcs_utils -v
 ```
+
+---
+
+## 🚀 Part 3 — Multimodal Document Extraction & Evaluation
+
+`rag_evaluation_multimodal.ipynb` extends the lab into **multimodal territory**: using Gemini's vision capabilities to extract structured data from invoice *images*, then measuring extraction quality against ground truth.
+
+While Parts 1–2 measured **retrieval quality** (ranking documents by relevance), Part 3 measures **extraction quality** (understanding document content visually).
+
+### What You'll Learn in Part 3
+
+Beyond text and embeddings, this section demonstrates:
+
+- **Vision model integration** – Send images to Gemini, request JSON extraction of structured fields
+- **Real cost measurement** – Capture actual token usage from API responses, not estimates
+- **Honest evaluation** – Record genuine failures (empty extraction) instead of backfilling ground truth
+- **Multimodal at scale** – Measure latency and cost of vision extraction per document
+- **Production evaluation discipline** – Same metrics framework (precision, recall, similarity) applied to extraction instead of ranking
+
+### GCP Setup (Part 3)
+
+No *new* setup required — reuses your existing project from Parts 1–2.
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and select your project
+2. The Vertex AI API should already be enabled (from Part 2)
+3. Authenticate locally: `gcloud auth application-default login`
+
+### Running Part 3
+
+```bash
+jupyter notebook rag_evaluation_multimodal.ipynb
+```
+
+The notebook:
+1. Generates 3 synthetic invoice images (real text rendered onto pixels, not placeholders)
+2. Sends each to Gemini with a JSON extraction prompt
+3. Evaluates extracted fields against ground truth (vendor, amount, date, description)
+4. Measures latency, token usage, and cost per invoice
+5. Writes results to BigQuery for queryable benchmarks
+
+### Example Results
+
+On 3 synthetic invoices with Gemini 2.5 Flash:
+
+| Metric | Value |
+|--------|-------|
+| Extraction Success Rate | 100% (3/3) |
+| Avg Field Exact Match | 83% (10/12 fields) |
+| Avg Field Precision (>0.8 similarity) | 100% |
+| Avg Latency | ~1.9 seconds per invoice |
+| Cost per 1M invoices | $111.37 |
+
+### Why This Matters for Your Portfolio
+
+**Parts 1–3 together demonstrate:**
+- ✅ Text retrieval fundamentals (keyword, TF-IDF, embeddings)
+- ✅ Production cloud integration (Vertex AI API, Cloud Storage, BigQuery)
+- ✅ **Multimodal capability** — Vision-to-structured-data extraction
+
+This closes the "multimodal gap" if you're applying to roles involving document understanding, PDF processing, or vision-based data extraction. Concrete code + real metrics beat hand-waving.
+
+---
+
+## 📚 Learning Path
+
+**New to RAG?** Start here:
+1. **Part 1** – Understand retrieval metrics and why they matter (no cloud setup required)
+2. **Part 2** – See how production embeddings outperform TF-IDF (requires GCP project)
+3. **Part 3** – Learn multimodal extraction with vision models (same GCP project)
+
+Each part reuses the same corpus and metric functions, so the comparison is apples-to-apples.
 
 Happy building!
